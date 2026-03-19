@@ -23,12 +23,12 @@ export class DayNightCycle {
 
         this.sun = new THREE.DirectionalLight(0xfffde7, 1.2);
         this.sun.castShadow = true;
-        this.sun.shadow.mapSize.width  = 2048;
-        this.sun.shadow.mapSize.height = 2048;
+        this.sun.shadow.mapSize.width  = 1024;
+        this.sun.shadow.mapSize.height = 1024;
         const sc = this.sun.shadow.camera;
-        sc.near = 1; sc.far = 900;
-        sc.left = -280; sc.right = 280;
-        sc.top  = 280;  sc.bottom = -280;
+        sc.near = 1; sc.far = 600;
+        sc.left = -200; sc.right = 200;
+        sc.top  = 200;  sc.bottom = -200;
         this.scene.add(this.sun);
         this.scene.add(this.sun.target);
 

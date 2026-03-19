@@ -18,7 +18,7 @@ export class Weather {
     }
 
     _buildRain () {
-        const N = 6000, spread = 120, height = 60;
+        const N = 3000, spread = 120, height = 60;
         const pos = new Float32Array(N * 3);
         for (let i = 0; i < N; i++) {
             pos[i*3]   = (Math.random()-.5)*spread;
@@ -35,7 +35,7 @@ export class Weather {
     }
 
     _buildSnow () {
-        const N = 3500, spread = 110, height = 55;
+        const N = 1800, spread = 110, height = 55;
         const pos = new Float32Array(N * 3);
         for (let i = 0; i < N; i++) {
             pos[i*3]   = (Math.random()-.5)*spread;
@@ -62,7 +62,7 @@ export class Weather {
             const blobs = 4 + Math.floor(Math.random()*4);
             for (let j = 0; j < blobs; j++) {
                 const r = 6 + Math.random()*10;
-                const m = new THREE.Mesh(new THREE.SphereGeometry(r,7,5), mat);
+                const m = new THREE.Mesh(new THREE.SphereGeometry(r,6,4), mat);
                 m.position.set((Math.random()-.5)*22,(Math.random()-.5)*6,(Math.random()-.5)*18);
                 g.add(m);
             }
