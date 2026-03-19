@@ -45,6 +45,24 @@ A fully interactive, browser-based 3D open-world town built with [Three.js](http
 | `[` `]` | Slow down / speed up time |
 | `1`–`5` | Jump to Morning / Noon / Sunset / Night / Dawn |
 
+## 🌐 GitHub Pages Deployment
+
+The repository includes a GitHub Actions workflow (`.github/workflows/pages.yml`) that
+automatically publishes the game to GitHub Pages on every push.
+
+### One-time setup (do this once in your repository settings)
+
+1. Go to your repository on GitHub → **Settings** → **Pages**
+2. Under **Source**, select **GitHub Actions** *(not "Deploy from a branch")*
+3. Click **Save**
+4. Push any change (or click **Actions → Deploy to GitHub Pages → Run workflow**)
+5. Your game will be live at **`https://hitesh360.github.io/3dgamo/`**
+
+> **Why was I seeing the README instead of the game?**
+> GitHub Pages was configured to serve from the `main` branch, which only contained
+> `README.md` at that point. Changing the source to **GitHub Actions** (step 2 above)
+> lets the workflow publish all the game files automatically.
+
 ## 🚀 Running Locally
 
 ```bash
@@ -57,7 +75,9 @@ No build step needed – the game loads Three.js directly from a CDN via an ES m
 ## 🗂 Project Structure
 
 ```
-index.html          – main page (HUD, overlay, importmap)
+index.html                        – main page (HUD, overlay, importmap)
+.nojekyll                         – disables Jekyll so GitHub Pages serves files as-is
+.github/workflows/pages.yml       – auto-deploy to GitHub Pages on every push
 src/
   main.js           – entry point
   Game.js           – orchestrator (scene, renderer, game loop)
@@ -71,4 +91,3 @@ src/
   UI.js             – HUD, minimap, toasts, prompts
   constants.js      – shared constants
 ```
-world which matters the most, and your helps.
