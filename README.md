@@ -2,6 +2,33 @@
 
 A fully interactive, browser-based 3D open-world town built with [Three.js](https://threejs.org/).
 
+---
+
+## ⚡ 3 steps to make https://hitesh360.github.io/3dgamo/ live
+
+All the code is ready — you just need to do these three things **once** on GitHub.com:
+
+### Step 1 — Enable GitHub Pages (GitHub Actions source)
+1. Open **[Settings → Pages](https://github.com/hitesh360/3dgamo/settings/pages)** in your repository
+2. Under **Build and deployment → Source**, choose **GitHub Actions** *(not "Deploy from a branch")*
+3. Click **Save**
+
+### Step 2 — Merge the open Pull Request
+1. Open **[Pull Request #1](https://github.com/hitesh360/3dgamo/pull/1)**
+2. Click **"Ready for review"** (it is currently a draft)
+3. Click **"Merge pull request"** → **"Confirm merge"**
+
+### Step 3 — Watch the deployment
+1. Go to the **[Actions tab](https://github.com/hitesh360/3dgamo/actions)**
+2. A "Deploy to GitHub Pages" run will start automatically — wait ~1 minute for it to complete (green ✅)
+3. Visit **https://hitesh360.github.io/3dgamo/** — the game will be live!
+
+> **Nothing else is required.** The repository already contains all the game code, the build
+> configuration (Vite), and the CI/CD workflow. Every future `git push` to `main` will
+> automatically rebuild and redeploy the site.
+
+---
+
 ## ✨ Features
 
 | Category | Details |
