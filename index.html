@@ -270,10 +270,14 @@ window.addEventListener('load', () => {
     ['tbtn-vehicle',  'KeyF'],
     ['tbtn-sprint',   'ShiftLeft'],
   ];
-  // Retry until input is available on window.gameInstance
+  // Retry until input is available on window.gameInstance (max 10 s)
+  let attempts = 0;
   const interval = setInterval(() => {
     const input = window.gameInstance && window.gameInstance.input;
-    if (!input) return;
+    if (!input) {
+      if (++attempts > 50) clearInterval(interval);  // give up after 10 s
+      return;
+    }
     clearInterval(interval);
     pairs.forEach(([id, code]) => {
       const el = document.getElementById(id);
