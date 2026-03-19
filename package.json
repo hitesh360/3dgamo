@@ -1,0 +1,25 @@
+{
+  "name": "3d-open-world-town",
+  "version": "1.0.0",
+  "description": "3D Open World Town – browser-based game",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "start": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "keywords": [
+    "3d",
+    "game",
+    "threejs",
+    "open-world"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "vite": "^6.4.1"
+  },
+  "dependencies": {
+    "three": "^0.165.0"
+  }
+}
