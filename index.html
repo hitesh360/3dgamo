@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>3D Open World Town</title>
+
+<!-- Import map – loads Three.js r165 from CDN -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+  }
+}
+</script>
+
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body { width:100%; height:100%; background:#000; overflow:hidden; font-family:'Segoe UI',Arial,sans-serif; }
+
+/* ── Canvas container ─────────────────────── */
+#canvas-container { position:fixed; inset:0; }
+#canvas-container canvas { display:block; }
+
+/* ── Start overlay ────────────────────────── */
+#start-overlay {
+  position:fixed; inset:0;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  background:rgba(0,0,0,0.88);
+  color:#fff; z-index:100;
+  text-align:center; padding:24px;
+}
+#start-overlay h1 { font-size:clamp(28px,6vw,64px); letter-spacing:2px; margin-bottom:8px;
+  background:linear-gradient(135deg,#4fc3f7,#aed581); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+#start-overlay p  { font-size:clamp(13px,2vw,17px); opacity:.8; margin-bottom:24px; max-width:500px; line-height:1.6; }
+#start-btn {
+  padding:14px 42px; font-size:18px; cursor:pointer; border:none; border-radius:50px;
+  background:linear-gradient(135deg,#29b6f6,#66bb6a); color:#fff; font-weight:700;
+  box-shadow:0 4px 24px rgba(41,182,246,.5); transition:transform .15s,box-shadow .15s;
+}
+#start-btn:hover { transform:scale(1.06); box-shadow:0 6px 32px rgba(41,182,246,.7); }
+
+/* ── Pause overlay ────────────────────────── */
+#pause-overlay {
+  position:fixed; inset:0;
+  display:none; align-items:center; justify-content:center;
+  background:rgba(0,0,0,0.6); color:#fff;
+  font-size:clamp(20px,4vw,36px); font-weight:700; z-index:90;
+  pointer-events:none;
+}
+
+/* ── HUD bar ──────────────────────────────── */
+#hud {
+  position:fixed; top:14px; left:50%; transform:translateX(-50%);
+  display:flex; gap:20px; align-items:center;
+  background:rgba(0,0,0,0.45); backdrop-filter:blur(6px);
+  border:1px solid rgba(255,255,255,0.12); border-radius:50px;
+  padding:7px 22px; color:#fff; font-size:14px; z-index:50; white-space:nowrap;
+  pointer-events:none;
+}
+#hud span { opacity:.85; }
+#hud .sep { opacity:.3; }
+#hud-speed { color:#ffd54f; font-weight:700; min-width:80px; }
+#hud-time  { color:#81d4fa; font-weight:600; }
+#hud-weather { color:#a5d6a7; }
+
+/* ── Crosshair ────────────────────────────── */
+#crosshair {
+  position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+  width:18px; height:18px; pointer-events:none; z-index:50; opacity:.7;
+}
+#crosshair::before, #crosshair::after {
+  content:''; position:absolute; background:rgba(255,255,255,0.9);
+  border-radius:2px;
+}
+#crosshair::before { width:2px; height:18px; left:8px; top:0; }
+#crosshair::after  { width:18px; height:2px; left:0;   top:8px; }
+
+/* ── Interaction prompt ───────────────────── */
+#prompt {
+  position:fixed; bottom:30%; left:50%; transform:translateX(-50%);
+  background:rgba(0,0,0,0.6); backdrop-filter:blur(4px);
+  color:#fff; font-size:15px; padding:9px 22px; border-radius:30px;
+  border:1px solid rgba(255,255,255,0.2);
+  opacity:0; transition:opacity .25s; z-index:55; pointer-events:none;
+  white-space:nowrap;
+}
+
+/* ── Notification toast ───────────────────── */
+#toast {
+  position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
+  background:rgba(0,20,40,0.82); backdrop-filter:blur(6px);
+  color:#e0f7fa; font-size:15px; padding:11px 26px; border-radius:30px;
+  border:1px solid rgba(100,200,255,0.3);
+  opacity:0; transition:opacity .3s; z-index:60; pointer-events:none;
+  max-width:520px; text-align:center;
+}
+#toast.fade-out { opacity:0 !important; transition:opacity .6s; }
+
+/* ── Minimap ──────────────────────────────── */
+#minimap-wrap {
+  position:fixed; bottom:18px; right:18px; z-index:55; pointer-events:none;
+}
+#minimap {
+  width:130px; height:130px; border-radius:50%;
+  border:2px solid rgba(255,255,255,0.25);
+  box-shadow:0 0 12px rgba(0,0,0,0.6);
+}
+
+/* ── Help button & controls panel ────────── */
+#help-btn {
+  position:fixed; top:14px; right:14px;
+  background:rgba(0,0,0,0.5); border:1px solid rgba(255,255,255,0.2);
+  color:#fff; font-size:18px; width:36px; height:36px;
+  border-radius:50%; cursor:pointer; z-index:60; display:flex;
+  align-items:center; justify-content:center; backdrop-filter:blur(4px);
+  transition:background .15s;
+}
+#help-btn:hover { background:rgba(60,120,180,0.6); }
+
+#controls-panel {
+  display:none; position:fixed; top:58px; right:14px;
+  background:rgba(0,10,20,0.85); backdrop-filter:blur(8px);
+  border:1px solid rgba(255,255,255,0.15); border-radius:12px;
+  color:#cce; font-size:13px; padding:16px 20px; z-index:60;
+  min-width:250px; max-height:80vh; overflow-y:auto;
+}
+#controls-panel h3 { color:#81d4fa; margin-bottom:10px; font-size:14px; }
+#controls-panel table { border-collapse:collapse; width:100%; }
+#controls-panel td   { padding:3px 8px; vertical-align:top; }
+#controls-panel td:first-child { color:#aed581; white-space:nowrap; font-weight:600; padding-right:12px; }
+#controls-panel tr:hover td { background:rgba(255,255,255,0.05); border-radius:4px; }
+#controls-panel .section { color:#90caf9; font-weight:700; padding-top:8px; font-size:12px; letter-spacing:1px; }
+</style>
+</head>
+<body>
+
+<!-- Canvas -->
+<div id="canvas-container"></div>
+
+<!-- Start overlay -->
+<div id="start-overlay">
+  <h1>3D Open World Town</h1>
+  <p>Explore a fully interactive 3D city — drive vehicles, talk to NPCs, relax in parks,
+     fish by the beach, experience dynamic day-night cycles &amp; weather, and much more.</p>
+  <button id="start-btn">▶ Start Exploring</button>
+</div>
+
+<!-- Pause overlay (pointer-lock lost) -->
+<div id="pause-overlay">Click to resume</div>
+
+<!-- HUD bar -->
+<div id="hud">
+  <span id="hud-time">12:00 PM</span>
+  <span class="sep">|</span>
+  <span id="hud-weather">☀ Clear</span>
+  <span class="sep">|</span>
+  <span id="hud-speed"></span>
+  <span id="hud-pos" style="opacity:.4;font-size:12px;"></span>
+</div>
+
+<!-- Crosshair -->
+<div id="crosshair"></div>
+
+<!-- Interaction prompt -->
+<div id="prompt"></div>
+
+<!-- Toast notification -->
+<div id="toast"></div>
+
+<!-- Minimap -->
+<div id="minimap-wrap">
+  <canvas id="minimap" width="130" height="130"></canvas>
+</div>
+
+<!-- Help button -->
+<button id="help-btn" title="Controls">?</button>
+
+<!-- Controls panel -->
+<div id="controls-panel">
+  <h3>🎮 Controls</h3>
+  <table>
+    <tr><td colspan="2" class="section">MOVEMENT</td></tr>
+    <tr><td>W A S D / Arrows</td><td>Move player / drive</td></tr>
+    <tr><td>Shift</td><td>Sprint</td></tr>
+    <tr><td>Space</td><td>Jump</td></tr>
+    <tr><td>Mouse</td><td>Look around</td></tr>
+    <tr><td>Scroll</td><td>Camera zoom</td></tr>
+    <tr><td>V</td><td>Toggle 1st / 3rd person</td></tr>
+
+    <tr><td colspan="2" class="section">INTERACTION</td></tr>
+    <tr><td>E</td><td>Interact (bench, fountain…)</td></tr>
+    <tr><td>F</td><td>Enter / exit vehicle</td></tr>
+    <tr><td>H</td><td>Horn (in vehicle)</td></tr>
+
+    <tr><td colspan="2" class="section">WORLD</td></tr>
+    <tr><td>T</td><td>Cycle weather</td></tr>
+    <tr><td>F1–F5</td><td>Set weather type</td></tr>
+    <tr><td>P</td><td>Pause / resume time</td></tr>
+    <tr><td>[ ]</td><td>Slow / speed up time</td></tr>
+    <tr><td>1–5</td><td>Jump to time of day</td></tr>
+
+    <tr><td colspan="2" class="section">MISC</td></tr>
+    <tr><td>Esc</td><td>Pause / release cursor</td></tr>
+    <tr><td>?</td><td>Toggle this panel</td></tr>
+  </table>
+</div>
+
+<!-- Boot the game -->
+<script type="module" src="src/main.js"></script>
+
+</body>
+</html>
