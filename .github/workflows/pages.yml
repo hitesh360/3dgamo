@@ -22,7 +22,7 @@ concurrency:
 
 jobs:
   deploy:
-    name: Deploy static site to GitHub Pages
+    name: Build and deploy to GitHub Pages
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -32,8 +32,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # No build step needed – the game is pure static HTML/JS
-      # Three.js is loaded from CDN via an importmap in index.html
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build with Vite
+        run: npm run build
 
       - name: Setup GitHub Pages
         uses: actions/configure-pages@v5
@@ -41,9 +50,10 @@ jobs:
       - name: Upload site artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Upload the entire repo root (contains index.html and src/)
-          path: '.'
+          # Upload the Vite build output (bundled JS + assets)
+          path: dist
 
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+

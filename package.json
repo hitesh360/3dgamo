@@ -4,8 +4,10 @@
   "description": "3D Open World Town – browser-based game",
   "type": "module",
   "scripts": {
-    "start": "npx serve . -p 3000",
-    "dev": "npx serve . -p 3000"
+    "dev": "vite",
+    "start": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
   },
   "keywords": [
     "3d",
@@ -15,6 +17,9 @@
   ],
   "license": "MIT",
   "devDependencies": {
-    "serve": "^14.2.6"
+    "vite": "^6.4.1"
+  },
+  "dependencies": {
+    "three": "^0.165.0"
   }
 }

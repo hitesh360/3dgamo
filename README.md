@@ -61,23 +61,29 @@ automatically publishes the game to GitHub Pages on every push.
 > **Why was I seeing the README instead of the game?**
 > GitHub Pages was configured to serve from the `main` branch, which only contained
 > `README.md` at that point. Changing the source to **GitHub Actions** (step 2 above)
-> lets the workflow publish all the game files automatically.
+> lets the workflow build and publish all the game files automatically.
 
 ## 🚀 Running Locally
 
 ```bash
-npm start
-# then open http://localhost:3000
+npm install
+npm run dev      # starts Vite dev server at http://localhost:5173
 ```
 
-No build step needed – the game loads Three.js directly from a CDN via an ES module import-map.
+For a production build (what GitHub Actions runs):
+
+```bash
+npm run build    # outputs to dist/
+npm run preview  # serves dist/ locally to verify
+```
 
 ## 🗂 Project Structure
 
 ```
-index.html                        – main page (HUD, overlay, importmap)
+index.html                        – main page (HUD, overlay, entry point for Vite)
+vite.config.js                    – Vite config (sets base: '/3dgamo/' for GitHub Pages)
 .nojekyll                         – disables Jekyll so GitHub Pages serves files as-is
-.github/workflows/pages.yml       – auto-deploy to GitHub Pages on every push
+.github/workflows/pages.yml       – auto-build + deploy to GitHub Pages on every push
 src/
   main.js           – entry point
   Game.js           – orchestrator (scene, renderer, game loop)
