@@ -15,10 +15,15 @@ export class World {
         this.interactables = [];
         this.streetLights  = [];
 
+        // Accumulated window data for InstancedMesh (built during _buildBlocks)
+        this._winFrontData = [];  // front/back face windows
+        this._winSideData  = [];  // left/right face windows
+
         this._buildGround();
         this._buildRoads();
         this._buildSidewalks();
         this._buildBlocks();
+        this._finalizeWindowMeshes();  // merge all windows into two InstancedMesh
         this._buildWater();
         this._buildSky();
         this._buildStars();
@@ -41,53 +46,94 @@ export class World {
         const dashMat = new THREE.MeshBasicMaterial ({ color: 0xffffff });
         const markMat = new THREE.MeshBasicMaterial ({ color: 0xeeeeee });
 
+        const dashLen = 5, dashGap = 4;
+
+        // ── Count instances for InstancedMesh pre-allocation ──────────────────
+        let vDashCount = 0, hDashCount = 0, cwXCount = 0, cwZCount = 0;
+        for (let i = 0; i <= GRID; i++) {
+            for (let d = -HALF_MAP; d < HALF_MAP; d += dashLen + dashGap) {
+                vDashCount++;
+                hDashCount++;
+            }
+            for (let j = 0; j <= GRID; j++) {
+                for (let s = 0; s < 5; s++) {
+                    cwXCount++;
+                    cwZCount++;
+                }
+            }
+        }
+
+        // ── Geometry with rotation pre-baked so instances only need position ──
+        const dummy = new THREE.Object3D();
+
+        const vDashGeo = new THREE.PlaneGeometry(0.25, dashLen);
+        vDashGeo.rotateX(-Math.PI / 2);
+        const vDashIM = new THREE.InstancedMesh(vDashGeo, dashMat, vDashCount);
+        this.scene.add(vDashIM);
+
+        const hDashGeo = new THREE.PlaneGeometry(dashLen, 0.25);
+        hDashGeo.rotateX(-Math.PI / 2);
+        const hDashIM = new THREE.InstancedMesh(hDashGeo, dashMat, hDashCount);
+        this.scene.add(hDashIM);
+
+        const stripeXGeo = new THREE.PlaneGeometry(1.0, ROAD_WIDTH * 0.8);
+        stripeXGeo.rotateX(-Math.PI / 2);
+        const stripeXIM = new THREE.InstancedMesh(stripeXGeo, markMat, cwXCount);
+        this.scene.add(stripeXIM);
+
+        const stripeZGeo = new THREE.PlaneGeometry(ROAD_WIDTH * 0.8, 1.0);
+        stripeZGeo.rotateX(-Math.PI / 2);
+        const stripeZIM = new THREE.InstancedMesh(stripeZGeo, markMat, cwZCount);
+        this.scene.add(stripeZIM);
+
+        let vDashIdx = 0, hDashIdx = 0, cwXIdx = 0, cwZIdx = 0;
+
         for (let i = 0; i <= GRID; i++) {
             const pos = -HALF_MAP + i * CELL_SIZE + ROAD_WIDTH/2;
 
-            // Vertical road strip
+            // Road surface strips (only 9 per direction – keep as plain meshes)
             const vRoad = new THREE.Mesh(new THREE.PlaneGeometry(ROAD_WIDTH, MAP_SIZE*1.4), roadMat);
             vRoad.rotation.x = -Math.PI/2;
             vRoad.position.set(pos, 0.01, 0);
             vRoad.receiveShadow = true;
             this.scene.add(vRoad);
 
-            // Horizontal road strip
             const hRoad = new THREE.Mesh(new THREE.PlaneGeometry(MAP_SIZE*1.4, ROAD_WIDTH), roadMat);
             hRoad.rotation.x = -Math.PI/2;
             hRoad.position.set(0, 0.01, pos);
             hRoad.receiveShadow = true;
             this.scene.add(hRoad);
 
-            // Centre dashes
-            const dashLen = 5, dashGap = 4;
-            for (let d = -HALF_MAP; d < HALF_MAP; d += dashLen+dashGap) {
-                const vD = new THREE.Mesh(new THREE.PlaneGeometry(0.25, dashLen), dashMat);
-                vD.rotation.x = -Math.PI/2;
-                vD.position.set(pos, 0.025, d + dashLen/2);
-                this.scene.add(vD);
+            // Centre dashes via InstancedMesh
+            for (let d = -HALF_MAP; d < HALF_MAP; d += dashLen + dashGap) {
+                dummy.position.set(pos, 0.025, d + dashLen/2);
+                dummy.updateMatrix();
+                vDashIM.setMatrixAt(vDashIdx++, dummy.matrix);
 
-                const hD = new THREE.Mesh(new THREE.PlaneGeometry(dashLen, 0.25), dashMat);
-                hD.rotation.x = -Math.PI/2;
-                hD.position.set(d + dashLen/2, 0.025, pos);
-                this.scene.add(hD);
+                dummy.position.set(d + dashLen/2, 0.025, pos);
+                dummy.updateMatrix();
+                hDashIM.setMatrixAt(hDashIdx++, dummy.matrix);
             }
 
-            // Crosswalks at each intersection
+            // Crosswalk stripes via InstancedMesh
             for (let j = 0; j <= GRID; j++) {
                 const crossPos = -HALF_MAP + j * CELL_SIZE + ROAD_WIDTH/2;
                 for (let s = 0; s < 5; s++) {
-                    const stripe = new THREE.Mesh(new THREE.PlaneGeometry(1.0, ROAD_WIDTH*0.8), markMat);
-                    stripe.rotation.x = -Math.PI/2;
-                    stripe.position.set(crossPos - ROAD_WIDTH/2 + 1.5 + s*2, 0.03, pos);
-                    this.scene.add(stripe);
+                    dummy.position.set(crossPos - ROAD_WIDTH/2 + 1.5 + s*2, 0.03, pos);
+                    dummy.updateMatrix();
+                    stripeXIM.setMatrixAt(cwXIdx++, dummy.matrix);
 
-                    const stripe2 = new THREE.Mesh(new THREE.PlaneGeometry(ROAD_WIDTH*0.8, 1.0), markMat);
-                    stripe2.rotation.x = -Math.PI/2;
-                    stripe2.position.set(pos, 0.03, crossPos - ROAD_WIDTH/2 + 1.5 + s*2);
-                    this.scene.add(stripe2);
+                    dummy.position.set(pos, 0.03, crossPos - ROAD_WIDTH/2 + 1.5 + s*2);
+                    dummy.updateMatrix();
+                    stripeZIM.setMatrixAt(cwZIdx++, dummy.matrix);
                 }
             }
         }
+
+        vDashIM.instanceMatrix.needsUpdate   = true;
+        hDashIM.instanceMatrix.needsUpdate   = true;
+        stripeXIM.instanceMatrix.needsUpdate = true;
+        stripeZIM.instanceMatrix.needsUpdate = true;
     }
 
     // ─── Sidewalks (raised kerb strips on each block edge) ─────────────────────
@@ -195,45 +241,80 @@ export class World {
     }
 
     _addWindowGrid (x, z, w, d, h, rnd) {
-        const wGlassMat = new THREE.MeshLambertMaterial({ color:0xaaddff, emissive:0x223344, transparent:true, opacity:0.8 });
         const wWall = 1.5, wH = 1.2, floorH = 3.0;
         const floorsN   = Math.floor(h / floorH);
         const perFaceW  = Math.max(1, Math.round(w / (wWall+1.2)));
         const perFaceD  = Math.max(1, Math.round(d / (wWall+1.2)));
 
-        const addFace = (count, faceZ, rotY) => {
-            const spacing = w / (count+1);
-            for (let floor=1; floor<=floorsN; floor++) {
-                const fy = floor*floorH - floorH*0.4;
-                if (fy >= h) break;
-                for (let wi=0; wi<count; wi++) {
-                    const mesh = new THREE.Mesh(
-                        new THREE.BoxGeometry(wWall, wH, 0.12),
-                        wGlassMat);
-                    mesh.position.set(x - w/2 + spacing*(wi+1), fy, faceZ);
-                    mesh.rotation.y = rotY;
-                    this.scene.add(mesh);
-                }
+        // Front & back faces
+        const spacingW = w / (perFaceW+1);
+        for (let floor=1; floor<=floorsN; floor++) {
+            const fy = floor*floorH - floorH*0.4;
+            if (fy >= h) break;
+            for (let wi=0; wi<perFaceW; wi++) {
+                const wx = x - w/2 + spacingW*(wi+1);
+                this._winFrontData.push(wx, fy, z - d/2 - 0.06);  // front
+                this._winFrontData.push(wx, fy, z + d/2 + 0.06);  // back
             }
-        };
+        }
 
-        addFace(perFaceW, z - d/2 - 0.06, 0);
-        addFace(perFaceW, z + d/2 + 0.06, 0);
-
-        // Side faces (swap x/z logic)
+        // Side faces (left & right)
         const spacingD = d / (perFaceD+1);
         for (let floor=1; floor<=floorsN; floor++) {
             const fy = floor*floorH - floorH*0.4;
             if (fy >= h) break;
             for (let wi=0; wi<perFaceD; wi++) {
-                const mL = new THREE.Mesh(new THREE.BoxGeometry(0.12, wH, wWall), wGlassMat);
-                mL.position.set(x - w/2 - 0.06, fy, z - d/2 + spacingD*(wi+1));
-                this.scene.add(mL);
-                const mR = new THREE.Mesh(new THREE.BoxGeometry(0.12, wH, wWall), wGlassMat);
-                mR.position.set(x + w/2 + 0.06, fy, z - d/2 + spacingD*(wi+1));
-                this.scene.add(mR);
+                const wz = z - d/2 + spacingD*(wi+1);
+                this._winSideData.push(x - w/2 - 0.06, fy, wz);  // left
+                this._winSideData.push(x + w/2 + 0.06, fy, wz);  // right
             }
         }
+    }
+
+    // ─── Finalise windows as two InstancedMesh objects ──────────────────────────
+    _finalizeWindowMeshes () {
+        const wGlassMat = new THREE.MeshLambertMaterial({
+            color: 0xaaddff, emissive: 0x223344, transparent: true, opacity: 0.8
+        });
+        const dummy = new THREE.Object3D();
+
+        // Front/back windows: BoxGeometry(1.5, 1.2, 0.12)
+        if (this._winFrontData.length > 0) {
+            const count = this._winFrontData.length / 3;
+            const geo   = new THREE.BoxGeometry(1.5, 1.2, 0.12);
+            const im    = new THREE.InstancedMesh(geo, wGlassMat, count);
+            for (let i = 0; i < count; i++) {
+                dummy.position.set(
+                    this._winFrontData[i*3],
+                    this._winFrontData[i*3+1],
+                    this._winFrontData[i*3+2]);
+                dummy.updateMatrix();
+                im.setMatrixAt(i, dummy.matrix);
+            }
+            im.instanceMatrix.needsUpdate = true;
+            this.scene.add(im);
+        }
+
+        // Side windows: BoxGeometry(0.12, 1.2, 1.5)
+        if (this._winSideData.length > 0) {
+            const count = this._winSideData.length / 3;
+            const geo   = new THREE.BoxGeometry(0.12, 1.2, 1.5);
+            const im    = new THREE.InstancedMesh(geo, wGlassMat, count);
+            for (let i = 0; i < count; i++) {
+                dummy.position.set(
+                    this._winSideData[i*3],
+                    this._winSideData[i*3+1],
+                    this._winSideData[i*3+2]);
+                dummy.updateMatrix();
+                im.setMatrixAt(i, dummy.matrix);
+            }
+            im.instanceMatrix.needsUpdate = true;
+            this.scene.add(im);
+        }
+
+        // Free memory
+        this._winFrontData = null;
+        this._winSideData  = null;
     }
 
     _addRooftopDetail (x, z, w, d, h, rnd) {
@@ -304,13 +385,13 @@ export class World {
         const waterMat = new THREE.MeshLambertMaterial({ color:0x4499cc, transparent:true, opacity:0.8 });
 
         // Basin
-        const basin = new THREE.Mesh(new THREE.CylinderGeometry(3.5,4,0.6,20), stoneMat);
+        const basin = new THREE.Mesh(new THREE.CylinderGeometry(3.5,4,0.6,12), stoneMat);
         basin.position.set(x,0.3,z);
         basin.castShadow = true;
         this.scene.add(basin);
 
         // Water surface
-        const ws = new THREE.Mesh(new THREE.CylinderGeometry(3.2,3.2,0.2,20), waterMat);
+        const ws = new THREE.Mesh(new THREE.CylinderGeometry(3.2,3.2,0.2,12), waterMat);
         ws.position.set(x,0.55,z);
         this.scene.add(ws);
         this._waterMeshes = this._waterMeshes || [];
@@ -477,7 +558,7 @@ export class World {
 
     // ─── Sky dome ───────────────────────────────────────────────────────────────
     _buildSky () {
-        const geo = new THREE.SphereGeometry(1200, 32, 16);
+        const geo = new THREE.SphereGeometry(1200, 16, 8);
         const mat = new THREE.MeshBasicMaterial({ color:0x87ceeb, side:THREE.BackSide });
         this.sky  = new THREE.Mesh(geo, mat);
         this.scene.add(this.sky);

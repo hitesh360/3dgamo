@@ -17,4 +17,4 @@ export const PLAYER_RADIUS        = 0.38;
 // Camera
 export const CAM_FOV  = 72;
 export const CAM_NEAR = 0.1;
-export const CAM_FAR  = 1800;
+export const CAM_FAR  = 600;   // fog ends at 500; no need to render beyond that

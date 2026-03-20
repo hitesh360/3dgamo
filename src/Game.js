@@ -14,11 +14,13 @@ import { UI }             from './UI.js';
  */
 export class Game {
     constructor () {
+        this.mobile = this._isMobile();
+
         this._setupRenderer();
         this._setupScene();
         this._setupCamera();
 
-        this.input   = new InputManager();
+        this.input   = new InputManager(this.mobile);
         this.clock   = new THREE.Clock();
 
         // World must come first (buildings, roads, etc.)
@@ -31,10 +33,10 @@ export class Game {
         this.dayNight.setSky (this.world.getSky());
         this.dayNight.setStars(this.world.getStars());
 
-        // Player + vehicles + NPCs
+        // Player + vehicles + NPCs (fewer NPCs on mobile to save CPU)
         this.player   = new Player(this.scene, this.camera, this.input, this.world);
         this.vehicles = createVehicles(this.scene);
-        this.npcs     = createNPCs(this.scene, 42);
+        this.npcs     = createNPCs(this.scene, this.mobile ? 10 : 20);
 
         // UI (depends on everything above)
         this.ui = new UI(this);
@@ -53,13 +55,22 @@ export class Game {
         window.addEventListener('resize', () => this._onResize());
     }
 
+    // ─── Mobile detection ────────────────────────────────────────────────────────
+    _isMobile () {
+        return ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+    }
+
     // ─── Renderer ───────────────────────────────────────────────────────────────
     _setupRenderer () {
-        this.renderer = new THREE.WebGLRenderer({ antialias:true });
-        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        const mobile = this.mobile;
+        this.renderer = new THREE.WebGLRenderer({ antialias: !mobile });
+        // Limit pixel ratio: 1 on mobile (saves fill-rate), max 2 on desktop
+        this.renderer.setPixelRatio(mobile ? Math.min(window.devicePixelRatio, 1)
+                                           : Math.min(window.devicePixelRatio, 2));
         this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.renderer.shadowMap.enabled = true;
-        this.renderer.shadowMap.type    = THREE.PCFSoftShadowMap;
+        // Disable expensive shadows on mobile
+        this.renderer.shadowMap.enabled = !mobile;
+        this.renderer.shadowMap.type    = THREE.PCFShadowMap;  // faster than PCFSoft
         this.renderer.outputColorSpace  = THREE.SRGBColorSpace;
         this.renderer.toneMapping       = THREE.ACESFilmicToneMapping;
         this.renderer.toneMappingExposure = 0.95;
@@ -81,25 +92,37 @@ export class Game {
     _setupPointerLock () {
         const overlay = document.getElementById('start-overlay');
         const startBtn = document.getElementById('start-btn');
+        const mobile = this.mobile;
 
         const doLock = () => {
             overlay.style.display = 'none';
-            document.body.requestPointerLock();
+            if (mobile) {
+                // Pointer lock is not supported on mobile; mark as locked manually
+                this.input.locked = true;
+                const pauseOverlay = document.getElementById('pause-overlay');
+                if (pauseOverlay) pauseOverlay.style.display = 'none';
+                this.player._updateMeshVis();
+            } else {
+                document.body.requestPointerLock();
+            }
         };
 
         if (startBtn) startBtn.addEventListener('click', doLock);
-        this.input.onAnyClick(() => {
-            if (!this.input.locked && overlay.style.display === 'none') {
-                document.body.requestPointerLock();
-            }
-        });
 
-        document.addEventListener('pointerlockchange', () => {
-            const locked = !!document.pointerLockElement;
-            const pauseOverlay = document.getElementById('pause-overlay');
-            if (pauseOverlay) pauseOverlay.style.display = locked ? 'none' : 'flex';
-            if (locked) this.player._updateMeshVis();
-        });
+        if (!mobile) {
+            this.input.onAnyClick(() => {
+                if (!this.input.locked && overlay.style.display === 'none') {
+                    document.body.requestPointerLock();
+                }
+            });
+
+            document.addEventListener('pointerlockchange', () => {
+                const locked = !!document.pointerLockElement;
+                const pauseOverlay = document.getElementById('pause-overlay');
+                if (pauseOverlay) pauseOverlay.style.display = locked ? 'none' : 'flex';
+                if (locked) this.player._updateMeshVis();
+            });
+        }
     }
 
     // ─── Global hotkeys ──────────────────────────────────────────────────────────
@@ -168,7 +191,19 @@ export class Game {
         this.player.update(dt, this.vehicles);
 
         for (const v of this.vehicles) v.update(dt, this.input, this.camera);
-        for (const n of this.npcs)     n.update(dt);
+
+        // Only update NPCs that are within 120 units of the player; hide the rest
+        const pp = this.player.getPos();
+        const NPC_CULL_SQ = 120 * 120;
+        for (const n of this.npcs) {
+            const dx = n.pos.x - pp.x, dz = n.pos.z - pp.z;
+            if (dx*dx + dz*dz < NPC_CULL_SQ) {
+                n.update(dt);
+                n.group.visible = true;
+            } else {
+                n.group.visible = false;
+            }
+        }
 
         this.ui.update(dt);
     }

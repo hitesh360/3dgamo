@@ -1,11 +1,13 @@
 name: Deploy to GitHub Pages
 
-# Runs on every push to main (after PR merge) and on the game branch
+# Runs on every push to main (after PR merge), on active game branches,
+# and can be triggered manually from the Actions tab.
 on:
   push:
     branches:
       - main
       - copilot/create-3d-open-world-town
+      - copilot/fix-game-performance-issues
   # Allow manual runs from the Actions tab
   workflow_dispatch:
 

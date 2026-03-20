@@ -115,7 +115,7 @@ export class NPC {
 /**
  * Factory – create N NPC pedestrians
  */
-export function createNPCs (scene, count=40) {
+export function createNPCs (scene, count=20) {
     const npcs = [];
     for (let i=0; i<count; i++) npcs.push(new NPC(scene));
     return npcs;
